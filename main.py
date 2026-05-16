@@ -51,35 +51,43 @@ ACTIONS = {"LOW": "APPROVE", "MEDIUM": "REVIEW", "HIGH": "REJECT", "ERROR": "ESC
 # ── Document Pool ─────────────────────────────────────────────────────
 def get_document_pool() -> List[Dict]:
     base = TEST_DOCS_DIR
-    candidates = [
-        # Real documents (LOW risk)
+
+    # These run FIRST — priority docs for balanced, representative scoring
+    priority = [
         {"path": base / "real_benchmark.png",        "expected": "LOW",    "type": "Real C of O"},
         {"path": base / "real_benchmark - Copy.png", "expected": "LOW",    "type": "Real C of O"},
-        {"path": base / "fake.png", "expected": "HIGH", "type": "Forged Document"},
-        {"path": base / "closetoreal.png", "expected": "MEDIUM", "type": "Suspicious Document"},
-        {"path": base / "fake - Copy.png", "expected": "HIGH", "type": "Forged Document"},
-        {"path": base / "fake_another.png", "expected": "HIGH", "type": "Forged Document"},
-        {"path": base / "fake_another - Copy.png", "expected": "HIGH", "type": "Forged Document"},
-        {"path": base / "fake_another1.png", "expected": "HIGH", "type": "Forged Document"},
+        {"path": base / "fake.png",                  "expected": "HIGH",   "type": "Forged Document"},
+        {"path": base / "closetoreal.png",           "expected": "MEDIUM", "type": "Suspicious Document"},
+        {"path": base / "fake - Copy.png",           "expected": "HIGH",   "type": "Forged Document"},
+        {"path": base / "fake_another.png",          "expected": "HIGH",   "type": "Forged Document"},
         {"path": base / "real_benchmark_2.png",      "expected": "LOW",    "type": "Real C of O"},
+        {"path": base / "fake_another - Copy.png",   "expected": "HIGH",   "type": "Forged Document"},
+        {"path": base / "fake_another1.png",         "expected": "HIGH",   "type": "Forged Document"},
+    ]
+
+    # Remaining docs fill in if more agents are requested
+    remaining = [
         {"path": base / "real_benchmark_2 - Copy.png","expected": "LOW",   "type": "Real C of O"},
         {"path": base / "real_fake.png",             "expected": "LOW",    "type": "Real C of O"},
         {"path": base / "real_fake - Copy.png",      "expected": "LOW",    "type": "Real C of O"},
-        # Suspicious documents (MEDIUM risk)
         {"path": base / "closetoreal - Copy.png",    "expected": "MEDIUM", "type": "Suspicious Document"},
         {"path": base / "closetoreal1.png",          "expected": "MEDIUM", "type": "Suspicious Document"},
         {"path": base / "closetoreal1 - Copy.png",   "expected": "MEDIUM", "type": "Suspicious Document"},
         {"path": base / "closetoreal2.png",          "expected": "MEDIUM", "type": "Suspicious Document"},
         {"path": base / "closetoreal2 - Copy.png",   "expected": "MEDIUM", "type": "Suspicious Document"},
-        # Forged documents (HIGH risk)
         {"path": base / "fake_another1 - Copy.png",  "expected": "HIGH",   "type": "Forged Document"},
         {"path": base / "fake_next.png",             "expected": "HIGH",   "type": "Forged Document"},
         {"path": base / "fake_next - Copy.png",      "expected": "HIGH",   "type": "Forged Document"},
     ]
+
+    # Priority docs first, then remaining — no shuffle on priority section
+    candidates = priority + remaining
     existing = [d for d in candidates if Path(d["path"]).exists()]
+
     if not existing:
         print("⚠️  No test_docs found — using mock pool")
         return _mock_pool()
+
     # Convert Path → str for JSON serialisation
     for d in existing:
         d["path"] = str(d["path"])
@@ -180,12 +188,16 @@ async def run_agents(ws: WebSocket):
 
     await ws.send_json({"type": "config", "num_agents": num_agents, "max_concurrent": MAX_CONCURRENT})
 
-    # Build assignment list
-    pool = get_document_pool()
-    while len(pool) < num_agents:
-        pool.extend(pool)
-    random.shuffle(pool)
-    assignments = pool[:num_agents]
+    # Build assignment list — priority docs go first, remainder shuffled to fill
+    PRIORITY_COUNT = 9  # matches the priority list in get_document_pool()
+    priority_docs  = pool[:PRIORITY_COUNT]
+    overflow_docs  = pool[PRIORITY_COUNT:]
+    random.shuffle(overflow_docs)
+    ordered_pool   = priority_docs + overflow_docs
+
+    while len(ordered_pool) < num_agents:
+        ordered_pool.extend(ordered_pool)
+    assignments = ordered_pool[:num_agents]
 
     await ws.send_json({"type": "start", "total": num_agents})
 
