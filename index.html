@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LandVerify — Multi-Agent Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --g0:#000d04;--g1:#00150a;--g2:#001f0e;--g3:#002d14;--g4:#00401c;
+    --g5:#005c26;--g6:#008034;--g7:#00b347;--g8:#00e05a;--g9:#39ff8a;
+    --ga:#7fffb8;--gb:#b8ffd8;
+    --dim:rgba(0,224,90,0.08);--dimb:rgba(0,224,90,0.14);
+    --border:rgba(0,224,90,0.18);--border-hi:rgba(0,224,90,0.45);
+    --text-pri:#b8ffd8;--text-sec:rgba(184,255,216,0.6);--text-dim:rgba(184,255,216,0.35);
+    --danger:#ff4d4d;--warn:#ffb84d;
+    --mono:'Space Mono',monospace;--sans:'DM Sans',sans-serif;
+  }
+  body { background:var(--g0);color:var(--text-pri);font-family:var(--sans);min-height:100vh;overflow-x:hidden; }
+  body::before {
+    content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:
+      repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(0,224,90,0.04) 39px,rgba(0,224,90,0.04) 40px),
+      repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(0,224,90,0.04) 39px,rgba(0,224,90,0.04) 40px);
+  }
+  .shell { position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:32px 24px 64px; }
+
+  header { display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:40px;flex-wrap:wrap; }
+  .logo-area { display:flex;align-items:center;gap:14px; }
+  .logo-mark {
+    width:42px;height:42px;border:1.5px solid var(--g8);border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:13px;color:var(--g8);letter-spacing:-1px;
+    position:relative;overflow:hidden;
+  }
+  .logo-mark::after { content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,224,90,0.15) 0%,transparent 60%); }
+  .logo-text { font-family:var(--mono);font-size:22px;color:var(--g9);letter-spacing:-1px; }
+  .logo-sub { font-size:11px;color:var(--text-dim);font-family:var(--mono);letter-spacing:2px;text-transform:uppercase;margin-top:2px; }
+  .status-pill {
+    display:flex;align-items:center;gap:8px;border:1px solid var(--border-hi);
+    background:var(--dimb);border-radius:100px;padding:7px 16px;
+    font-family:var(--mono);font-size:12px;color:var(--g9);
+  }
+  .dot { width:8px;height:8px;border-radius:50%;background:var(--g8);animation:pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,224,90,0.5)}50%{opacity:.7;box-shadow:0 0 0 5px rgba(0,224,90,0)} }
+
+  .metrics { display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:32px; }
+  .metric-card {
+    border:1px solid var(--border);background:var(--dim);border-radius:10px;
+    padding:18px 20px;position:relative;overflow:hidden;transition:border-color .25s;
+  }
+  .metric-card:hover { border-color:var(--border-hi); }
+  .metric-card::before {
+    content:'';position:absolute;top:0;left:0;right:0;height:1px;
+    background:linear-gradient(90deg,transparent,var(--g7),transparent);opacity:.5;
+  }
+  .metric-label { font-size:11px;color:var(--text-dim);font-family:var(--mono);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px; }
+  .metric-value { font-size:28px;font-weight:600;color:var(--g9);line-height:1; }
+  .metric-sub { font-size:11px;color:var(--text-sec);margin-top:6px; }
+
+  .controls { display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap;align-items:center; }
+  .btn {
+    font-family:var(--mono);font-size:12px;padding:9px 20px;border-radius:6px;
+    cursor:pointer;border:1px solid var(--border-hi);background:transparent;
+    color:var(--g9);letter-spacing:.5px;transition:background .15s,transform .1s;
+  }
+  .btn:hover { background:var(--dimb); }
+  .btn:active { transform:scale(0.97); }
+  .btn.primary { background:var(--g5);border-color:var(--g8);color:var(--gb); }
+  .btn.primary:hover { background:var(--g6); }
+  .btn.primary.running { animation:runpulse 1s ease-in-out infinite; }
+  @keyframes runpulse { 0%,100%{background:var(--g5)}50%{background:var(--g6)} }
+  .agent-count { display:flex;align-items:center;gap:8px;margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--text-sec); }
+  .agent-count input[type=range] { accent-color:var(--g8);width:100px; }
+
+  .section-label {
+    font-family:var(--mono);font-size:11px;color:var(--text-dim);
+    letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;
+    display:flex;align-items:center;gap:10px;
+  }
+  .section-label::after { content:'';flex:1;height:1px;background:var(--border); }
+
+  .agent-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-bottom:32px; }
+  .agent-card {
+    border:1px solid var(--border);background:var(--dim);border-radius:10px;
+    padding:16px 18px;position:relative;overflow:hidden;
+    transition:border-color .3s;animation:cardIn .35s ease forwards;
+    opacity:0;transform:translateY(8px);
+  }
+  @keyframes cardIn { to{opacity:1;transform:translateY(0)} }
+  .agent-card.running { border-color:rgba(0,176,255,0.5); }
+  .agent-card.running::before {
+    content:'';position:absolute;top:0;left:-100%;width:60%;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(0,176,255,0.9),transparent);
+    animation:scanline 1.5s linear infinite;
+  }
+  @keyframes scanline { to{left:140%} }
+  .agent-card.success { border-color:var(--border-hi); }
+  .agent-card.failed { border-color:rgba(255,77,77,0.4); }
+  .agent-card.warn-card { border-color:rgba(255,184,77,0.4); }
+
+  .agent-header { display:flex;align-items:center;gap:10px;margin-bottom:12px; }
+  .agent-id {
+    width:32px;height:32px;border-radius:6px;border:1px solid var(--border-hi);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:11px;color:var(--g8);flex-shrink:0;
+  }
+  .agent-name { font-size:13px;font-weight:500;color:var(--text-pri);flex:1; }
+  .agent-badge { font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:4px;letter-spacing:.5px; }
+  .badge-idle   { background:rgba(184,255,216,0.08);color:var(--text-dim);border:1px solid var(--border); }
+  .badge-running{ background:rgba(0,176,255,0.12);color:#66d9ff;border:1px solid rgba(0,176,255,0.3); }
+  .badge-low    { background:rgba(0,224,90,0.12);color:var(--g9);border:1px solid var(--border-hi); }
+  .badge-medium { background:rgba(255,184,77,0.12);color:var(--warn);border:1px solid rgba(255,184,77,0.3); }
+  .badge-high   { background:rgba(255,77,77,0.12);color:var(--danger);border:1px solid rgba(255,77,77,0.3); }
+  .badge-error  { background:rgba(255,77,77,0.08);color:var(--danger);border:1px solid rgba(255,77,77,0.2); }
+
+  .agent-doc { display:none; }
+  .agent-bar-wrap { height:3px;background:var(--border);border-radius:2px;margin-bottom:10px;overflow:hidden; }
+  .agent-bar { height:100%;width:0%;border-radius:2px;background:var(--g8);transition:width .4s ease; }
+  .agent-bar.warn { background:var(--warn); }
+  .agent-bar.danger { background:var(--danger); }
+  .agent-footer { display:flex;justify-content:space-between;align-items:center; }
+  .agent-score { font-family:var(--mono);font-size:20px;color:var(--g9); }
+  .agent-score.warn { color:var(--warn); }
+  .agent-score.danger { color:var(--danger); }
+  .agent-time { font-size:11px;color:var(--text-dim);font-family:var(--mono); }
+
+  /* reasoning tooltip */
+  .agent-reasoning {
+    font-size:11px;color:var(--text-dim);font-family:var(--sans);
+    margin-top:8px;line-height:1.5;display:none;
+    border-top:1px solid var(--border);padding-top:8px;
+  }
+  .agent-card.success .agent-reasoning,
+  .agent-card.failed .agent-reasoning,
+  .agent-card.warn-card .agent-reasoning { display:block; }
+
+  .terminal {
+    border:1px solid var(--border);background:#000a03;border-radius:10px;
+    padding:16px 18px;margin-bottom:32px;max-height:220px;overflow-y:auto;
+    scrollbar-width:thin;scrollbar-color:var(--g5) transparent;
+  }
+  .terminal::-webkit-scrollbar { width:4px; }
+  .terminal::-webkit-scrollbar-thumb { background:var(--g5);border-radius:2px; }
+  .term-line { font-family:var(--mono);font-size:12px;line-height:1.9;color:var(--text-sec);animation:fadeIn .2s ease; }
+  @keyframes fadeIn { from{opacity:0}to{opacity:1} }
+  .term-line .ts { color:var(--g6);margin-right:6px; }
+  .term-line .ok { color:var(--g9); }
+  .term-line .er { color:var(--danger); }
+  .term-line .wa { color:var(--warn); }
+  .term-line .in { color:rgba(0,176,255,0.9); }
+
+  .arc-section { display:flex;gap:12px;margin-bottom:32px;flex-wrap:wrap; }
+  .arc-card {
+    border:1px solid var(--border);background:var(--dim);border-radius:10px;
+    padding:20px;flex:1;min-width:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
+  .arc-label { font-size:11px;color:var(--text-dim);font-family:var(--mono);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px; }
+  .arc-pct { font-family:var(--mono);font-size:24px;color:var(--g9);margin-top:8px; }
+
+  .breakdown { display:flex;gap:8px;flex-wrap:wrap; }
+  .breakdown-item { flex:1;min-width:100px;border:1px solid var(--border);background:var(--dim);border-radius:8px;padding:12px 14px; }
+  .breakdown-label { font-size:11px;color:var(--text-dim);font-family:var(--mono);margin-bottom:6px; }
+  .breakdown-bar-wrap { height:2px;background:var(--border);border-radius:1px;overflow:hidden;margin-bottom:6px; }
+  .breakdown-bar { height:100%;border-radius:1px;transition:width .6s ease; }
+  .b-low{background:var(--g8)}.b-med{background:var(--warn)}.b-high{background:var(--danger)}
+  .breakdown-val { font-family:var(--mono);font-size:13px; }
+
+  /* connection error banner */
+  .error-banner {
+    display:none;border:1px solid rgba(255,77,77,0.4);background:rgba(255,77,77,0.08);
+    border-radius:8px;padding:12px 16px;margin-bottom:16px;
+    font-family:var(--mono);font-size:12px;color:var(--danger);
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header>
+    <div class="logo-area">
+      <div class="logo-mark">LV</div>
+      <div>
+        <div class="logo-text">LandVerify</div>
+        <div class="logo-sub">Multi-Agent · Parallel Verification</div>
+      </div>
+    </div>
+    <div class="status-pill">
+      <div class="dot" id="status-dot"></div>
+      <span id="status-text">SYSTEM READY</span>
+    </div>
+  </header>
+
+  <div class="error-banner" id="err-banner"></div>
+
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="metric-label">Accuracy</div>
+      <div class="metric-value" id="m-accuracy">—</div>
+      <div class="metric-sub">correct / total processed</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Total Time</div>
+      <div class="metric-value" id="m-time">—</div>
+      <div class="metric-sub">vs ~50s sequential</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Agents Active</div>
+      <div class="metric-value" id="m-active">0</div>
+      <div class="metric-sub">of <span id="m-total">7</span> total</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Avg Trust Score</div>
+      <div class="metric-value" id="m-trust">—</div>
+      <div class="metric-sub">out of 100</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Failures</div>
+      <div class="metric-value" id="m-fail">0</div>
+      <div class="metric-sub">circuit breaker: <span id="m-cb">inactive</span></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn primary" id="run-btn" onclick="runAgents()">▶ LAUNCH AGENTS</button>
+    <button class="btn" onclick="resetDashboard()">↺ RESET</button>
+    <div class="agent-count">
+      <span>Agents:</span>
+      <input type="range" min="3" max="12" value="7" id="agent-slider" oninput="updateCount(this.value)">
+      <span id="agent-count-val">7</span>
+    </div>
+  </div>
+
+  <div class="section-label">Agent Status</div>
+  <div class="agent-grid" id="agent-grid"></div>
+
+  <div class="arc-section">
+    <div class="arc-card">
+      <div class="arc-label">Completion</div>
+      <svg width="90" height="90" viewBox="0 0 90 90" style="overflow:visible">
+        <circle cx="45" cy="45" r="38" fill="none" stroke="rgba(0,224,90,0.1)" stroke-width="6"/>
+        <circle id="arc-prog" cx="45" cy="45" r="38" fill="none" stroke="var(--g8)" stroke-width="6"
+          stroke-dasharray="238.76" stroke-dashoffset="238.76"
+          stroke-linecap="round" transform="rotate(-90 45 45)"
+          style="transition:stroke-dashoffset .5s ease"/>
+      </svg>
+      <div class="arc-pct" id="arc-pct">0%</div>
+    </div>
+    <div class="arc-card" style="flex:2">
+      <div class="arc-label" style="align-self:flex-start">Verdict Breakdown</div>
+      <div class="breakdown" style="width:100%">
+        <div class="breakdown-item">
+          <div class="breakdown-label">LOW RISK</div>
+          <div class="breakdown-bar-wrap"><div class="breakdown-bar b-low" id="bb-low" style="width:0%"></div></div>
+          <div class="breakdown-val" id="bv-low" style="color:var(--g9)">0</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">MEDIUM RISK</div>
+          <div class="breakdown-bar-wrap"><div class="breakdown-bar b-med" id="bb-med" style="width:0%"></div></div>
+          <div class="breakdown-val" id="bv-med" style="color:var(--warn)">0</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">HIGH RISK</div>
+          <div class="breakdown-bar-wrap"><div class="breakdown-bar b-high" id="bb-high" style="width:0%"></div></div>
+          <div class="breakdown-val" id="bv-high" style="color:var(--danger)">0</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">ERRORS</div>
+          <div class="breakdown-bar-wrap"><div class="breakdown-bar" id="bb-err" style="width:0%;background:rgba(255,77,77,0.4)"></div></div>
+          <div class="breakdown-val" id="bv-err" style="color:var(--text-dim)">0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Activity Log</div>
+  <div class="terminal" id="terminal">
+    <div class="term-line"><span class="ts">[00:00:00]</span><span class="in"> System initialized. Ready to launch agents.</span></div>
+  </div>
+
+</div>
+<script>
+// ── State ──────────────────────────────────────────────────────
+let totalAgents = 7;
+let running = false;
+let ws = null;
+let agentCards = {};   // id → {expected, verdict, score}
+let startTime = null;
+let doneCount = 0;
+
+// ── WebSocket URL — works on HTTP and HTTPS ───────────────────
+function wsUrl() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  return `${proto}://${location.host}/ws/run`;
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function ts() {
+  const n = new Date();
+  return `${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`;
+}
+function pad(v){ return String(v).padStart(2,'0'); }
+
+function log(msg, cls='') {
+  const t = document.getElementById('terminal');
+  const d = document.createElement('div');
+  d.className = 'term-line';
+  d.innerHTML = `<span class="ts">[${ts()}]</span><span class="${cls}"> ${msg}</span>`;
+  t.appendChild(d);
+  t.scrollTop = t.scrollHeight;
+}
+
+function showError(msg) {
+  const b = document.getElementById('err-banner');
+  b.textContent = msg;
+  b.style.display = 'block';
+}
+function hideError() {
+  document.getElementById('err-banner').style.display = 'none';
+}
+
+function updateCount(v) {
+  totalAgents = +v;
+  document.getElementById('agent-count-val').textContent = v;
+  document.getElementById('m-total').textContent = v;
+  if (!running) buildGrid(v);
+}
+
+// ── Grid ──────────────────────────────────────────────────────
+function buildGrid(n) {
+  const grid = document.getElementById('agent-grid');
+  grid.innerHTML = '';
+  agentCards = {};
+  for (let i = 1; i <= n; i++) {
+    agentCards[i] = { status: 'idle' };
+    const card = document.createElement('div');
+    card.className = 'agent-card idle';
+    card.id = `agent-${i}`;
+    card.style.animationDelay = `${(i-1)*0.04}s`;
+    card.innerHTML = `
+      <div class="agent-header">
+        <div class="agent-id">${pad(i)}</div>
+        <div class="agent-name" id="name-${i}">Awaiting assignment</div>
+        <span class="agent-badge badge-idle" id="badge-${i}">IDLE</span>
+      </div>
+      <div class="agent-doc" id="doc-${i}">—</div>
+      <div class="agent-bar-wrap"><div class="agent-bar" id="bar-${i}"></div></div>
+      <div class="agent-footer">
+        <div class="agent-score" id="score-${i}">—</div>
+        <div class="agent-time" id="time-${i}">—</div>
+      </div>
+      <div class="agent-reasoning" id="reasoning-${i}"></div>
+    `;
+    grid.appendChild(card);
+  }
+}
+
+// ── Agent card state transitions ──────────────────────────────
+function setRunning(id, doc) {
+  const card = document.getElementById(`agent-${id}`);
+  if (!card) return;
+  card.className = 'agent-card running';
+  document.getElementById(`name-${id}`).textContent = doc.type || 'Document';
+
+  document.getElementById(`badge-${id}`).className = 'agent-badge badge-running';
+  document.getElementById(`badge-${id}`).textContent = 'PROCESSING';
+  agentCards[id].barInterval = setInterval(() => {
+    const bar = document.getElementById(`bar-${id}`);
+    if (!bar) return;
+    const cur = parseFloat(bar.style.width) || 0;
+    bar.style.width = Math.min(cur + Math.random() * 5 + 1, 85) + '%';
+  }, 200);
+}
+
+function setDone(id, result) {
+  clearInterval(agentCards[id]?.barInterval);
+  const card = document.getElementById(`agent-${id}`);
+  if (!card) return;
+
+  const v = result.actual_verdict;
+  const isErr = v === 'ERROR' || !!result.error;
+
+  if (isErr)       card.className = 'agent-card failed';
+  else if (v === 'HIGH')   card.className = 'agent-card warn-card';
+  else             card.className = 'agent-card success';
+
+  const badgeKey = isErr ? 'error' : v.toLowerCase();
+  document.getElementById(`badge-${id}`).className = `agent-badge badge-${badgeKey}`;
+  document.getElementById(`badge-${id}`).textContent = isErr ? 'ERROR' : v;
+
+  const bar = document.getElementById(`bar-${id}`);
+  bar.style.width = isErr ? '0%' : result.trust_score + '%';
+  if (v === 'HIGH')   bar.classList.add('danger');
+  else if (v === 'MEDIUM') bar.classList.add('warn');
+
+  const sc = document.getElementById(`score-${id}`);
+  sc.textContent = isErr ? 'ERR' : result.trust_score;
+  if (v === 'HIGH')   sc.classList.add('danger');
+  else if (v === 'MEDIUM') sc.classList.add('warn');
+
+  document.getElementById(`time-${id}`).textContent =
+    `${(result.processing_time_ms / 1000).toFixed(1)}s`;
+
+  if (result.llm_reasoning) {
+    const r = document.getElementById(`reasoning-${id}`);
+    r.textContent = result.llm_reasoning.slice(0, 160) + (result.llm_reasoning.length > 160 ? '…' : '');
+  }
+}
+
+// ── Metrics ───────────────────────────────────────────────────
+function updateMetrics(summary) {
+  if (summary.accuracy !== undefined)
+    document.getElementById('m-accuracy').textContent = summary.accuracy + '%';
+  if (summary.avg_trust_score !== undefined)
+    document.getElementById('m-trust').textContent = Math.round(summary.avg_trust_score);
+  document.getElementById('m-fail').textContent = summary.failures || 0;
+  if (summary.circuit_open)
+    document.getElementById('m-cb').textContent = 'TRIGGERED';
+}
+
+function updateArc(done, total) {
+  const pct = Math.round(done / total * 100);
+  document.getElementById('arc-pct').textContent = pct + '%';
+  const circ = 2 * Math.PI * 38;
+  document.getElementById('arc-prog').style.strokeDashoffset = circ - (circ * pct / 100);
+}
+
+function updateBreakdown(results) {
+  const total = results.length || 1;
+  const count = v => results.filter(r => r.actual_verdict === v).length;
+  const errCount = results.filter(r => r.error || r.actual_verdict === 'ERROR').length;
+  const low = count('LOW'), med = count('MEDIUM'), high = count('HIGH');
+  document.getElementById('bv-low').textContent  = low;
+  document.getElementById('bv-med').textContent  = med;
+  document.getElementById('bv-high').textContent = high;
+  document.getElementById('bv-err').textContent  = errCount;
+  document.getElementById('bb-low').style.width  = Math.round(low  / total * 100) + '%';
+  document.getElementById('bb-med').style.width  = Math.round(med  / total * 100) + '%';
+  document.getElementById('bb-high').style.width = Math.round(high / total * 100) + '%';
+  document.getElementById('bb-err').style.width  = Math.round(errCount / total * 100) + '%';
+}
+
+// ── Main run ──────────────────────────────────────────────────
+function runAgents() {
+  if (running) return;
+  hideError();
+  running = true;
+  doneCount = 0;
+  startTime = Date.now();
+  const allResults = [];
+
+  const btn = document.getElementById('run-btn');
+  btn.textContent = '⏳ RUNNING...';
+  btn.classList.add('running');
+  document.getElementById('status-dot').style.background = '#66d9ff';
+  document.getElementById('status-text').textContent = 'AGENTS DISPATCHED';
+  document.getElementById('m-active').textContent = '0';
+
+  // Track running count separately
+  let activeCount = 0;
+
+  ws = new WebSocket(wsUrl());
+
+  ws.onopen = () => {
+    log(`WebSocket connected. Sending config…`, 'in');
+    ws.send(JSON.stringify({ num_agents: totalAgents }));
+  };
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+
+    if (msg.type === 'config') {
+      log(`Config: ${msg.num_agents} agents, ${msg.max_concurrent} concurrent`, 'in');
+    }
+
+    else if (msg.type === 'start') {
+      log(`Dispatching ${msg.total} agents in parallel…`, 'in');
+    }
+
+    else if (msg.type === 'agent_running') {
+      // Backend tells us an agent started (optional enhancement)
+      activeCount++;
+      document.getElementById('m-active').textContent = activeCount;
+    }
+
+    else if (msg.type === 'agent_done') {
+      const r = msg.result;
+      doneCount++;
+      activeCount = Math.max(0, activeCount - 1);
+      document.getElementById('m-active').textContent = activeCount;
+      allResults.push(r);
+
+      setDone(r.agent_id, r);
+      updateArc(doneCount, totalAgents);
+      updateBreakdown(allResults);
+
+      const isErr = r.error || r.actual_verdict === 'ERROR';
+      const cls = isErr ? 'er' : (r.actual_verdict === 'HIGH' ? 'wa' : 'ok');
+      const correct = r.correct ? '✓' : '✗';
+      log(
+        `Agent ${pad(r.agent_id)} → ${r.actual_verdict} | score:${r.trust_score} | ` +
+        `${r.squad_action} | ${(r.processing_time_ms/1000).toFixed(1)}s ${correct}`,
+        cls
+      );
+
+      // Live accuracy update
+      const valid = allResults.filter(x => x.actual_verdict !== 'ERROR' && !x.error);
+      if (valid.length > 0) {
+        const acc = Math.round(valid.filter(x => x.correct).length / valid.length * 100);
+        document.getElementById('m-accuracy').textContent = acc + '%';
+        const avgT = Math.round(valid.reduce((s,x) => s + x.trust_score, 0) / valid.length);
+        document.getElementById('m-trust').textContent = avgT;
+      }
+      document.getElementById('m-fail').textContent =
+        allResults.filter(x => x.error || x.actual_verdict === 'ERROR').length;
+    }
+
+    else if (msg.type === 'agent_error') {
+      doneCount++;
+      log(`Agent error: ${msg.error}`, 'er');
+      updateArc(doneCount, totalAgents);
+    }
+
+    else if (msg.type === 'circuit_breaker') {
+      log(`⚠ ${msg.message}`, 'wa');
+      document.getElementById('m-cb').textContent = 'TRIGGERED';
+    }
+
+    else if (msg.type === 'complete') {
+      const s = msg.summary;
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      document.getElementById('m-time').textContent = elapsed + 's';
+      document.getElementById('m-active').textContent = '0';
+      updateMetrics(s);
+      log(`All ${s.completed} agents finished. Accuracy: ${s.accuracy}% | Time: ${elapsed}s`, 'ok');
+      btn.textContent = '✓ COMPLETE';
+      btn.classList.remove('running');
+      document.getElementById('status-dot').style.background = 'var(--g8)';
+      document.getElementById('status-text').textContent = `COMPLETED IN ${elapsed}s`;
+      running = false;
+    }
+  };
+
+  ws.onerror = (e) => {
+    showError('WebSocket error — is the backend running? Check Railway logs.');
+    log('WebSocket connection error', 'er');
+    running = false;
+    btn.textContent = '▶ LAUNCH AGENTS';
+    btn.classList.remove('running');
+  };
+
+  ws.onclose = (e) => {
+    if (running) {
+      log(`WebSocket closed unexpectedly (code ${e.code})`, 'wa');
+      running = false;
+      btn.textContent = '▶ LAUNCH AGENTS';
+      btn.classList.remove('running');
+    }
+  };
+
+  // Optimistically mark cards as running (backend will process up to MAX_CONCURRENT at once)
+  for (let i = 1; i <= totalAgents; i++) {
+    setTimeout(() => {
+      if (agentCards[i]) setRunning(i, { type: 'Processing…', path: 'queued' });
+    }, (i - 1) * 120);
+  }
+}
+
+// ── Reset ─────────────────────────────────────────────────────
+function resetDashboard() {
+  if (running) return;
+  hideError();
+  ['m-accuracy','m-time','m-trust'].forEach(id => document.getElementById(id).textContent = '—');
+  document.getElementById('m-active').textContent = '0';
+  document.getElementById('m-fail').textContent = '0';
+  document.getElementById('m-cb').textContent = 'inactive';
+  document.getElementById('arc-pct').textContent = '0%';
+  document.getElementById('arc-prog').style.strokeDashoffset = 238.76;
+  ['low','med','high','err'].forEach(k => {
+    document.getElementById(`bv-${k}`).textContent = '0';
+    document.getElementById(`bb-${k}`).style.width = '0%';
+  });
+  document.getElementById('run-btn').textContent = '▶ LAUNCH AGENTS';
+  document.getElementById('run-btn').classList.remove('running');
+  document.getElementById('status-dot').style.background = 'var(--g8)';
+  document.getElementById('status-text').textContent = 'SYSTEM READY';
+  document.getElementById('terminal').innerHTML =
+    '<div class="term-line"><span class="ts">[00:00:00]</span><span class="in"> System reset. Ready to launch agents.</span></div>';
+  buildGrid(totalAgents);
+}
+
+// ── Init ──────────────────────────────────────────────────────
+buildGrid(totalAgents);
+</script>
+</body>
+</html>
